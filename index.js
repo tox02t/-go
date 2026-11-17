@@ -39,7 +39,6 @@ client.on('guildBanAdd', (ban) => {
 // --- 2. إعدادات موقع الـ Web Dashboard (Express) ---
 const app = express();
 app.set('view engine', 'ejs');
-// تحديد مسار مجلد العرض للـ UI
 app.set('views', path.join(__dirname, 'src', 'web', 'views'));
 app.use(express.urlencoded({ extended: true }));
 
