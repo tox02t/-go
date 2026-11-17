@@ -1,72 +1,87 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const express = require('express');
-const session = require('express-session');
 const path = require('path');
 
-// --- 1. إعدادات بوت الديسكورد ---
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// إعدادات البوت مع الصلاحيات والـ Intents الكاملة لقراءة الأعضاء والأحداث
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildBans,
-        GatewayIntentBits.GuildModeration,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
-    ]
+    ],
+    partials: [Partials.Channel, Partials.Message, Partials.GuildMember]
 });
 
-// مصفوفة لتخزين آخر الأحداث (Logs) لعرضها في الموقع مباشرة
-const recentLogs = [];
+// مصفوفة لحفظ السجلات (Logs) وعرضها في الموقع مباشرة
+const liveLogs = [];
+
 function addLog(type, message) {
-    const timestamp = new Date().toLocaleTimeString();
-    recentLogs.unshift({ type, message, timestamp });
-    if (recentLogs.length > 50) recentLogs.pop(); // الاحتفاظ بآخر 50 سجل
+    const time = new Date().toLocaleTimeString('ar-SA');
+    liveLogs.unshift({ type, message, time });
+    if (liveLogs.length > 50) liveLogs.pop(); // الاحتفاظ بأخر 50 سجل فقط
 }
 
-client.once('ready', () => {
-    console.log(`[TOX-SHIELD] Secured & Logged in as ${client.user.tag}`);
-});
-
-client.on('guildMemberAdd', (member) => {
-    addLog('INFO', `انضم العضو ${member.user.tag} إلى السيرفر.`);
-});
-
-client.on('guildBanAdd', (ban) => {
-    addLog('WARN', `تم حظر (Ban) العضو ${ban.user.tag} من السيرفر.`);
-});
-
-// --- 2. إعدادات موقع الـ Web Dashboard (Express) ---
-const app = express();
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'src', 'web', 'views'));
+// إعدادات الـ Express
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'src', 'views'));
 
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'tox_super_secret_key_2026',
-    resave: false,
-    saveUninitialized: false
-}));
-
-// صفحة لوحة التحكم الرئيسية (Dashboard UI)
+// الصفحة الرئيسية (لوحة التحكم Dashboard)
 app.get('/', (req, res) => {
-    res.render('dashboard', {
+    res.render('index', {
         botName: client.user ? client.user.username : 'TOX Shield',
-        guildsCount: client.guilds.cache.size,
-        logs: recentLogs
+        status: client.isReady() ? 'متصل وجاهز (Online)' : 'غير متصل',
+        logs: liveLogs
     });
 });
 
-// API للحصول على اللوقات
-app.get('/api/logs', (req, res) => {
-    res.json(recentLogs);
+// مسار تنفيذ الباند لأي عضو من الموقع
+app.post('/dashboard/ban/:userId', async (req, res) => {
+    const userId = req.params.userId;
+    const guildId = process.env.GUILD_ID; // آيدي السيرفر حقك (تأكد من إضافته في متغيرات الاستضافة)
+    
+    try {
+        if (!guildId) {
+            return res.status(400).send("خطأ: لم يتم تحديد آيدي السيرفر GUILD_ID في متغيرات البيئة.");
+        }
+        const guild = await client.guilds.fetch(guildId);
+        if (!guild) return res.status(404).send("السيرفر غير موجود.");
+        
+        await guild.members.ban(userId, { reason: "تم إعطاؤه باند عبر لوحة التحكم Web Dashboard" });
+        addLog('BAN', `تم حظر المستخدم ذو الأيدي (${userId}) بنجاح من لوحة التحكم.`);
+        res.redirect('/?success=banned');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("فشل تنفيذ الباند، تأكد من صلاحيات البوت وآيدي العضو.");
+    }
 });
 
-// تشغيل السيرفر والموقع معاً
-const PORT = process.env.PORT || 3000;
+// أحداث البوت وتوثيقها في اللوقات
+client.once('ready', () => {
+    console.log(`[BOT] تم تسجيل الدخول بنجاح باسم ${client.user.tag}`);
+    addLog('SYSTEM', `البوت اشتغل بنجاح باسم ${client.user.tag}`);
+});
+
+// رصد انضمام الأعضاء الجدد
+client.on('guildMemberAdd', (member) => {
+    addLog('JOIN', `عضو جديد انضم: ${member.user.tag}`);
+});
+
+// رصد الحظر
+client.on('guildBanAdd', (ban) => {
+    addLog('BAN', `تم حظر العضو: ${ban.user.tag}`);
+});
+
+// تشغيل البوت والسرڤر معاُ
 app.listen(PORT, () => {
-    console.log(`[WEB-UI] Dashboard running on port ${PORT}`);
+    console.log(`[WEB] لوحة التحكم تعمل على المنصّة عبر البورت ${PORT}`);
 });
 
-// تسجيل دخول البوت
+// تسجيل دخول البوت باستخدام التوكن من متغيرات البيئة
 client.login(process.env.TOKEN);
