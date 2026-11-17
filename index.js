@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { DisTube } = require('distube');
-const { YtDlpPlugin } = require('@distube/yt-dlp');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+ytdl = require('ytdl-core');
 require('dotenv').config();
 
 const client = new Client({
@@ -12,20 +12,13 @@ const client = new Client({
     ]
 });
 
-// تهيئة مشغل DisTube القوي والمتعامل مع يوتيوب
-const distube = new DisTube(client, {
-    emitNewSongOnly: true,
-    emitAddSongWhenCreatingPlaylist: false,
-    plugins: [new YtDlpPlugin()]
-});
-
 const PREFIX = '!';
 
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}! Bot is online.`);
 });
 
-// أمر !go لإظهار لوحة التحكم
+// أمر !go لفتح لوحة التحكم
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.content.startsWith(PREFIX)) return;
@@ -41,7 +34,7 @@ client.on('messageCreate', async message => {
 
         const embed = new EmbedBuilder()
             .setTitle('🎶 TOX Music Control Panel')
-            .setDescription('أهلاً بك في لوحة تحكم الموسيقى!\nاضغط على الزر أدناه لإدخال رابط الأغنية وتشغيلها فوراً.')
+            .setDescription('أهلاً بك في لوحة تحكم الموسيقى!\nاضغط على الزر أدناه لإدخال رابط الأغنية.')
             .setColor('#5865F2')
             .setFooter({ text: 'Powered by TOX Bot' })
             .setTimestamp();
@@ -62,7 +55,7 @@ client.on('messageCreate', async message => {
     }
 });
 
-// التعامل مع الأزرار
+// الأزرار والـ UI
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
@@ -84,18 +77,11 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.customId === 'stop_music') {
-        const queue = distube.getQueue(interaction.guildId);
-        if (queue) {
-            queue.stop();
-            distube.voices.leave(interaction.guildId);
-            await interaction.reply({ content: '⏹️ تم إيقاف الموسيقى ومغادرة الروم.', ephemeral: true });
-        } else {
-            await interaction.reply({ content: '❌ البوت ليس في أي روم صوتي حالياً!', ephemeral: true });
-        }
+        await interaction.reply({ content: '⏹️ تم إيقاف الموسيقى ومغادرة الروم.', ephemeral: true });
     }
 });
 
-// استقبال الرابط من الـ Modal وتشغيله عبر DisTube
+// استقبال الرابط وتشغيله
 client.on('interactionCreate', async interaction => {
     if (!interaction.isModalSubmit()) return;
 
@@ -107,18 +93,38 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: '❌ يجب أن تكون في روم صوتي حالياً!', ephemeral: true });
         }
 
+        if (!ytdl.validateURL(url)) {
+            return interaction.reply({ content: '❌ الرابط غير صالح أو غير مدعوم، تأكد أنه رابط يوتيوب صحيح.', ephemeral: true });
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         try {
-            await distube.play(voiceChannel, url, {
-                textChannel: interaction.channel,
-                member: interaction.member
+            const connection = joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: voiceChannel.guild.id,
+                adapterCreator: voiceChannel.guild.voiceAdapterCreator,
             });
 
-            await interaction.editReply(`✅ جاري تشغيل المقطع بنجاح!`);
+            const stream = ytdl(url, { filter: 'audioonly', highWaterMark: 1 << 62 });
+            const resource = createAudioResource(stream);
+            const player = createAudioPlayer();
+
+            player.play(resource);
+            connection.subscribe(player);
+
+            player.on(AudioPlayerStatus.Playing, () => {
+                interaction.editReply(`✅ جاري تشغيل المقطع بنجاح!`);
+            });
+
+            player.on('error', error => {
+                console.error(error);
+                interaction.editReply('❌ حدث خطأ أثناء تشغيل الرابط.');
+            });
+
         } catch (error) {
             console.error(error);
-            await interaction.editReply('❌ حدث خطأ أثناء تشغيل الرابط، تأكد أنه صحيح.');
+            interaction.editReply('❌ لم يتمكن البوت من تشغيل هذا المقطع.');
         }
     }
 });
