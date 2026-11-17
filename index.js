@@ -1,8 +1,22 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const play = require('play-dl');
+const express = require('express'); // إضافة سيرفر الويب لضمان عمل البوت على Render
 require('dotenv').config();
 
+// إعداد سيرفر الويب البسيط
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('TOX Music Bot is alive and running 24/7! 🚀');
+});
+
+app.listen(PORT, () => {
+    console.log(`🌍 Express server is listening on port ${PORT}`);
+});
+
+// إعداد بوت ديسكورد
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -18,7 +32,7 @@ client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}! Bot is online.`);
 });
 
-// استقبال أمر !go لفتح واجهة التحكم (UI)
+// أمر !go لفتح واجهة التحكم (UI)
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.content.startsWith(PREFIX)) return;
@@ -81,7 +95,7 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// التعامل مع إدخال الرابط من نافذة الـ Modal
+// التعامل مع إدخال الرابط من نافذة الـ Modal وتشغيل الصوت
 client.on('interactionCreate', async interaction => {
     if (!interaction.isModalSubmit()) return;
 
