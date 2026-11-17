@@ -1,7 +1,6 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const express = require('express');
 const session = require('express-session');
-const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,7 +32,6 @@ app.use(session({
     saveUninitialized: false
 }));
 
-// إعدادات ديسكورد أوتث
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REDIRECT_URI = process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/auth/discord/callback` : `http://localhost:${PORT}/auth/discord/callback`;
@@ -94,7 +92,7 @@ function getLoginPage() {
     </html>`;
 }
 
-// مسارات المصادقة (Discord OAuth2)
+// مسارات المصادقة
 app.get('/auth/discord', (req, res) => {
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
     res.redirect(discordAuthUrl);
@@ -137,7 +135,7 @@ app.get('/logout', (req, res) => {
     res.redirect('/');
 });
 
-// --- قالب التصميم الموحد ---
+// قالب التصميم
 function getLayout(title, activePage, content) {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const status = client.isReady() ? 'متصل وحماية نشطة 🟢' : 'غير متصل 🔴';
@@ -204,7 +202,6 @@ function getLayout(title, activePage, content) {
     </html>`;
 }
 
-// --- مسارات لوحة التحكم (محمية بـ checkAuth) ---
 app.get('/', checkAuth, (req, res) => {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const renderLogs = (cat) => {
@@ -231,7 +228,7 @@ app.get('/', checkAuth, (req, res) => {
             </div>
             <div class="box">
                 <h2>📌 النظام الأمني مفعل</h2>
-                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">مرحباً بك! أنت معتمد كمسؤول ولديك صلاحيات كاملة للتحكم بالسيرفر عبر هذا الرابط المحمي برول الإدارة.</p>
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">أهلاً بك! أنت معتمد كمسؤول ولديك صلاحيات كاملة للتحكم عبر الموقع.</p>
             </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -281,7 +278,6 @@ app.post('/api/action', checkAuth, async (req, res) => {
     }
 });
 
-// الأحداث
 client.on('guildMemberUpdate', (oldM, newM) => {
     newM.roles.cache.filter(r => !oldM.roles.cache.has(r.id)).forEach(r => {
         if (['admin', 'streamer', 'مشرف'].some(n => r.name.toLowerCase().includes(n))) {
