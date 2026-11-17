@@ -3,7 +3,7 @@ const express = require('express');
 const session = require('express-session');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 const client = new Client({
     intents: [
@@ -34,8 +34,8 @@ app.use(session({
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const REQUIRED_ROLE_ID = '1488188549529342182';
 const GUILD_ID = process.env.GUILD_ID;
+const REQUIRED_ROLE_ID = '1488188549529342182';
 
 function getRedirectUri(req) {
     if (process.env.RENDER_EXTERNAL_URL) {
@@ -53,18 +53,11 @@ async function checkAuth(req, res, next) {
 
     try {
         if (!GUILD_ID) {
-            console.log("خطأ: متغير GUILD_ID غير مضبوط في Render.");
             return res.status(500).send("خطأ: متغير GUILD_ID غير مضبوط في Render.");
         }
         
-        console.log("جاري البحث عن السيرفر آيدي:", GUILD_ID);
         const guild = await client.guilds.fetch(GUILD_ID);
-        console.log("تم العثور على السيرفر بنجاح:", guild.name);
-
-        const member = await guild.members.fetch(req.session.user.id).catch(err => {
-            console.log("خطأ في جلب العضو من السيرفر:", err.message);
-            return null;
-        });
+        const member = await guild.members.fetch(req.session.user.id).catch(() => null);
 
         if (!member) {
             return res.status(403).send(`
@@ -85,7 +78,7 @@ async function checkAuth(req, res, next) {
                 <head><meta charset="UTF-8"><title>مرفوض</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700&display=swap" rel="stylesheet"></head>
                 <body style="background:#090d16;color:#fff;font-family:'Cairo';text-align:center;padding-top:100px;">
                     <h1 style="color:#ef4444;">⛔ غير مصرح لك بالدخول</h1>
-                    <p style="color:#94a3b8;margin-top:10px;">عذراً، حسابك (${req.session.user.username}) لا يحمل رول الإدارة المطلوب في السيرفر.</p>
+                    <p style="color:#94a3b8;margin-top:10px;">عذراً، حسابك لا يحمل رول الإدارة المطلوب في السيرفر.</p>
                     <a href="/logout" style="display:inline-block;margin-top:20px;padding:10px 20px;background:#38bdf8;color:#000;text-decoration:none;border-radius:8px;font-weight:bold;">تسجيل بحساب آخر</a>
                 </body>
                 </html>
@@ -93,7 +86,6 @@ async function checkAuth(req, res, next) {
         }
         next();
     } catch (e) {
-        console.error("خطأ قاتل في التحقق:", e.message);
         return res.status(500).send("خطأ في السيرفر: " + e.message);
     }
 }
@@ -258,13 +250,13 @@ app.get('/', checkAuth, (req, res) => {
                 <input type="text" id="reason" placeholder="السبب...">
                 <div class="btn-group">
                     <button class="action-btn btn-ban" onclick="executeAction('ban')">باند 🚨</button>
-                    <button class="action-btn btn-kick" onclick="executeAction('kick') - طرد 👢</button>
+                    <button class="action-btn btn-kick" onclick="executeAction('kick')">طرد 👢</button>
                     <button class="action-btn btn-timeout" onclick="executeAction('timeout')">تايم أوت ⏱️</button>
                 </div>
             </div>
             <div class="box">
                 <h2>📌 حماية OAuth2 مفعلة</h2>
-                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">تم التحقق من هويتك وصلاحياتك بنجاح عبر حسابك الرسمي في ديسكورد.</p>
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">تم التحقق من هويتك والصلاحيات بنجاح عبر حسابك الرسمي في ديسكورد.</p>
             </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -290,7 +282,7 @@ app.get('/', checkAuth, (req, res) => {
 });
 
 app.get('/settings', checkAuth, (req, res) => {
-    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة.</p></div>`, req.session.user));
+    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة عالية.</p></div>`, req.session.user));
 });
 
 app.get('/logs', checkAuth, (req, res) => {
