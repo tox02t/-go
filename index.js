@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const express = require('express');
-const cookieParser = require('cookie-parser');
+const session = require('express-session');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,15 +25,29 @@ function addLog(type, message, category = 'SYSTEM') {
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(cookieParser());
+app.use(session({
+    secret: 'tox-secure-oauth-key-2026',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+}));
 
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const REQUIRED_ROLE_ID = '1488188549529342182';
 const GUILD_ID = process.env.GUILD_ID;
 
-// نظام تحقق مبسط وسريع بدون تعقيدات الـ OAuth2
+function getRedirectUri(req) {
+    if (process.env.RENDER_EXTERNAL_URL) {
+        return `${process.env.RENDER_EXTERNAL_URL}/auth/discord/callback`;
+    }
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    return `${protocol}://${host}/auth/discord/callback`;
+}
+
 async function checkAuth(req, res, next) {
-    const discordId = req.cookies.tox_discord_id;
-    if (!discordId) {
+    if (!req.session.user) {
         return res.send(getLoginPage());
     }
 
@@ -42,7 +56,7 @@ async function checkAuth(req, res, next) {
             return res.status(500).send("خطأ: متغير GUILD_ID غير مضبوط في Render.");
         }
         const guild = await client.guilds.fetch(GUILD_ID);
-        const member = await guild.members.fetch(discordId).catch(() => null);
+        const member = await guild.members.fetch(req.session.user.id).catch(() => null);
 
         if (!member || !member.roles.cache.has(REQUIRED_ROLE_ID)) {
             return res.send(`
@@ -50,17 +64,16 @@ async function checkAuth(req, res, next) {
                 <head><meta charset="UTF-8"><title>مرفوض</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700&display=swap" rel="stylesheet"></head>
                 <body style="background:#090d16;color:#fff;font-family:'Cairo';text-align:center;padding-top:100px;">
                     <h1 style="color:#ef4444;">⛔ غير مصرح لك بالدخول</h1>
-                    <p style="color:#94a3b8;margin-top:10px;">عذراً، الآيدي المسجل لا يحمل رول الإدارة المطلوب.</p>
-                    <a href="/logout" style="display:inline-block;margin-top:20px;padding:10px 20px;background:#38bdf8;color:#000;text-decoration:none;border-radius:8px;font-weight:bold;">تسجيل آيدي آخر</a>
+                    <p style="color:#94a3b8;margin-top:10px;">عذراً، حسابك (${req.session.user.username}) لا يحمل رول الإدارة المطلوب في السيرفر.</p>
+                    <a href="/logout" style="display:inline-block;margin-top:20px;padding:10px 20px;background:#38bdf8;color:#000;text-decoration:none;border-radius:8px;font-weight:bold;">تسجيل بحساب آخر</a>
                 </body>
                 </html>
             `);
         }
-        req.userTag = member.user.tag;
         next();
     } catch (e) {
-        console.error(e);
-        res.status(500).send("حدث خطأ أثناء الاتصال بسيرفر ديسكورد للتحقق.");
+        console.error("Auth Check Error:", e);
+        res.status(500).send("حدث خطأ أثناء التحقق من الصلاحيات مع ديسكورد.");
     }
 }
 
@@ -74,38 +87,71 @@ function getLoginPage() {
             body { background: #090d16; color: #fff; font-family: 'Cairo', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .login-card { background: #0e1626; border: 1px solid #1e293b; padding: 40px; border-radius: 16px; text-align: center; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
             h1 { color: #38bdf8; font-size: 24px; margin-bottom: 10px; }
-            p { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
-            input { width: 100%; padding: 12px; margin-bottom: 15px; background: #090d16; border: 1px solid #1e293b; color: #fff; border-radius: 8px; text-align: center; font-size: 14px; outline: none; }
-            .btn-login { background: #38bdf8; color: #000; padding: 12px; border: none; border-radius: 8px; width: 100%; font-weight: 700; cursor: pointer; transition: 0.2s; }
-            .btn-login:hover { background: #0ea5e9; }
+            p { color: #94a3b8; font-size: 13px; margin-bottom: 25px; }
+            .btn-discord { background: #5865F2; color: white; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 700; display: block; transition: 0.2s; }
+            .btn-discord:hover { background: #4752C4; }
         </style>
     </head>
     <body>
         <div class="login-card">
             <h1>🛡️ TOX Panel</h1>
-            <p>أدخل آيدي حسابك في ديسكورد (Discord ID) للتحقق من صلاحياتك والدخول للوحة:</p>
-            <form action="/auth-verify" method="POST">
-                <input type="text" name="discordId" placeholder="مثال: 123456789012345678" required>
-                <button type="submit" class="btn-login">دخول للوحة التحكم 🚀</button>
-            </form>
+            <p>لوحة التحكم محمية بنظام آمن. يرجى تسجيل الدخول بحسابك في ديسكورد للتحقق من هويتك.</p>
+            <a href="/auth/discord" class="btn-discord">تسجيل الدخول بواسطة Discord 🎮</a>
         </div>
     </body>
     </html>`;
 }
 
-app.post('/auth-verify', (req, res) => {
-    const { discordId } = req.body;
-    if (!discordId) return res.redirect('/');
-    res.cookie('tox_discord_id', discordId.trim(), { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true });
-    res.redirect('/');
+app.get('/auth/discord', (req, res) => {
+    const redirectUri = getRedirectUri(req);
+    const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20guilds.members.read`;
+    res.redirect(authUrl);
+});
+
+app.get('/auth/discord/callback', async (req, res) => {
+    const code = req.query.code;
+    if (!code) return res.redirect('/');
+
+    try {
+        const redirectUri = getRedirectUri(req);
+        const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+            method: 'POST',
+            body: new URLSearchParams({
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: redirectUri,
+            }),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+
+        const oauthData = await tokenResponse.json();
+        if (!oauthData.access_token) {
+            console.error("OAuth Token Error:", oauthData);
+            return res.redirect('/');
+        }
+
+        const userResponse = await fetch('https://discord.com/api/users/@me', {
+            headers: { authorization: `Bearer ${oauthData.access_token}` },
+        });
+
+        const userData = await userResponse.json();
+        req.session.user = userData;
+        res.redirect('/');
+    } catch (error) {
+        console.error("Auth Callback Exception:", error);
+        res.redirect('/');
+    }
 });
 
 app.get('/logout', (req, res) => {
-    res.clearCookie('tox_discord_id');
-    res.redirect('/');
+    req.session.destroy(() => {
+        res.redirect('/');
+    });
 });
 
-function getLayout(title, activePage, content, userTag) {
+function getLayout(title, activePage, content, user) {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const status = client.isReady() ? 'متصل وحماية نشطة 🟢' : 'غير متصل 🔴';
 
@@ -182,7 +228,7 @@ app.get('/', checkAuth, (req, res) => {
     const content = `
         <div class="grid-stats">
             <div class="card"><h3>حالة البوت</h3><div class="value">${botName}</div></div>
-            <div class="card"><h3>المستخدم المتحقق</h3><div class="value" style="color:#38bdf8;">${req.userTag}</div></div>
+            <div class="card"><h3>المستخدم المسجل</h3><div class="value" style="color:#38bdf8;">${req.session.user.username}</div></div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
             <div class="box">
@@ -196,8 +242,8 @@ app.get('/', checkAuth, (req, res) => {
                 </div>
             </div>
             <div class="box">
-                <h2>📌 النظام الأمني مفعل</h2>
-                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">أهلاً بك! تم التحقق من هويتك وصلاحياتك بنجاح عبر نظام الآيدي المباشر.</p>
+                <h2>📌 حماية OAuth2 مفعلة</h2>
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">تم التحقق من هويتك وصلاحياتك بنجاح عبر حسابك الرسمي في ديسكورد.</p>
             </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -219,16 +265,16 @@ app.get('/', checkAuth, (req, res) => {
             }
         </script>
     `;
-    res.send(getLayout('نظرة عامة', 'home', content, req.userTag));
+    res.send(getLayout('نظرة عامة', 'home', content, req.session.user));
 });
 
 app.get('/settings', checkAuth, (req, res) => {
-    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة.</p></div>`, req.userTag));
+    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة.</p></div>`, req.session.user));
 });
 
 app.get('/logs', checkAuth, (req, res) => {
     const all = liveLogs.map(l => `<li><span><strong>[${l.category}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
-    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`, req.userTag));
+    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`, req.session.user));
 });
 
 app.post('/api/action', checkAuth, async (req, res) => {
