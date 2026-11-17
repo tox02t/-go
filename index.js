@@ -35,7 +35,10 @@ app.use(session({
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const GUILD_ID = process.env.GUILD_ID;
+
+// إعدادات رتبة الإدارة المطلوبة
 const REQUIRED_ROLE_ID = '1488188549529342182';
+const REQUIRED_ROLE_NAME = 'Management';
 
 function getRedirectUri(req) {
     if (process.env.RENDER_EXTERNAL_URL) {
@@ -72,13 +75,17 @@ async function checkAuth(req, res, next) {
             `);
         }
 
-        if (!member.roles.cache.has(REQUIRED_ROLE_ID)) {
+        // التحقق إما بالـ ID أو باسم الرتبة Management
+        const hasRoleById = member.roles.cache.has(REQUIRED_ROLE_ID);
+        const hasRoleByName = member.roles.cache.some(r => r.name.toLowerCase() === REQUIRED_ROLE_NAME.toLowerCase());
+
+        if (!hasRoleById && !hasRoleByName) {
             return res.send(`
                 <html lang="ar" dir="rtl">
                 <head><meta charset="UTF-8"><title>مرفوض</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700&display=swap" rel="stylesheet"></head>
                 <body style="background:#090d16;color:#fff;font-family:'Cairo';text-align:center;padding-top:100px;">
                     <h1 style="color:#ef4444;">⛔ غير مصرح لك بالدخول</h1>
-                    <p style="color:#94a3b8;margin-top:10px;">عذراً، حسابك لا يحمل رول الإدارة المطلوب في السيرفر.</p>
+                    <p style="color:#94a3b8;margin-top:10px;">عذراً، حسابك لا يحمل رول الإدارة المطلوبة (${REQUIRED_ROLE_NAME}) في السيرفر.</p>
                     <a href="/logout" style="display:inline-block;margin-top:20px;padding:10px 20px;background:#38bdf8;color:#000;text-decoration:none;border-radius:8px;font-weight:bold;">تسجيل بحساب آخر</a>
                 </body>
                 </html>
@@ -108,7 +115,7 @@ function getLoginPage() {
     <body>
         <div class="login-card">
             <h1>🛡️ TOX Panel</h1>
-            <p>لوحة التحكم محمية بنظام آمن. يرجى تسجيل الدخول بحسابك في ديسكورد للتحقق من هويتك.</p>
+            <p>لوحة التحكم محمية بنظام آمن. يرجى تسجيل الدخول بحسابك في ديسكورد للتحقق من هويتك وصلاحيات (${REQUIRED_ROLE_NAME}).</p>
             <a href="/auth/discord" class="btn-discord">تسجيل الدخول بواسطة Discord 🎮</a>
         </div>
     </body>
@@ -255,8 +262,8 @@ app.get('/', checkAuth, (req, res) => {
                 </div>
             </div>
             <div class="box">
-                <h2>📌 حماية OAuth2 مفعلة</h2>
-                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">تم التحقق من هويتك والصلاحيات بنجاح عبر حسابك الرسمي في ديسكورد.</p>
+                <h2>📌 صلاحيات رتبة Management</h2>
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">تم التحقق من هويتك ورتبة الإدارة (${REQUIRED_ROLE_NAME}) بنجاح عبر حسابك الرسمي في ديسكورد.</p>
             </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -282,7 +289,7 @@ app.get('/', checkAuth, (req, res) => {
 });
 
 app.get('/settings', checkAuth, (req, res) => {
-    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة عالية.</p></div>`, req.session.user));
+    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة عالية برتبة ${REQUIRED_ROLE_NAME}.</p></div>`, req.session.user));
 });
 
 app.get('/logs', checkAuth, (req, res) => {
@@ -308,7 +315,7 @@ app.post('/api/action', checkAuth, async (req, res) => {
 
 client.on('guildMemberUpdate', (oldM, newM) => {
     newM.roles.cache.filter(r => !oldM.roles.cache.has(r.id)).forEach(r => {
-        if (['admin', 'streamer', 'مشرف'].some(n => r.name.toLowerCase().includes(n))) {
+        if (['admin', 'streamer', 'مشرف', 'management'].some(n => r.name.toLowerCase().includes(n))) {
             addLog('ROLE', `منح رتبة [${r.name}] لـ ${newM.user.tag}`, 'ROLES');
         }
     });
