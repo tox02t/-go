@@ -53,12 +53,33 @@ async function checkAuth(req, res, next) {
 
     try {
         if (!GUILD_ID) {
+            console.log("خطأ: متغير GUILD_ID غير مضبوط في Render.");
             return res.status(500).send("خطأ: متغير GUILD_ID غير مضبوط في Render.");
         }
+        
+        console.log("جاري البحث عن السيرفر آيدي:", GUILD_ID);
         const guild = await client.guilds.fetch(GUILD_ID);
-        const member = await guild.members.fetch(req.session.user.id).catch(() => null);
+        console.log("تم العثور على السيرفر بنجاح:", guild.name);
 
-        if (!member || !member.roles.cache.has(REQUIRED_ROLE_ID)) {
+        const member = await guild.members.fetch(req.session.user.id).catch(err => {
+            console.log("خطأ في جلب العضو من السيرفر:", err.message);
+            return null;
+        });
+
+        if (!member) {
+            return res.status(403).send(`
+                <html lang="ar" dir="rtl">
+                <head><meta charset="UTF-8"><title>غير موجود</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700&display=swap" rel="stylesheet"></head>
+                <body style="background:#090d16;color:#fff;font-family:'Cairo';text-align:center;padding-top:100px;">
+                    <h1 style="color:#ef4444;">⛔ أنت لست موجوداً في السيرفر!</h1>
+                    <p style="color:#94a3b8;margin-top:10px;">عذراً، البوت لا يراك داخل السيرفر الرئيسي أو أنك غير منضم إليه.</p>
+                    <a href="/logout" style="display:inline-block;margin-top:20px;padding:10px 20px;background:#38bdf8;color:#000;text-decoration:none;border-radius:8px;font-weight:bold;">تسجيل بحساب آخر</a>
+                </body>
+                </html>
+            `);
+        }
+
+        if (!member.roles.cache.has(REQUIRED_ROLE_ID)) {
             return res.send(`
                 <html lang="ar" dir="rtl">
                 <head><meta charset="UTF-8"><title>مرفوض</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700&display=swap" rel="stylesheet"></head>
@@ -72,8 +93,8 @@ async function checkAuth(req, res, next) {
         }
         next();
     } catch (e) {
-        console.error("Auth Check Error:", e);
-        res.status(500).send("حدث خطأ أثناء التحقق من الصلاحيات مع ديسكورد.");
+        console.error("خطأ قاتل في التحقق:", e.message);
+        return res.status(500).send("خطأ في السيرفر: " + e.message);
     }
 }
 
@@ -237,7 +258,7 @@ app.get('/', checkAuth, (req, res) => {
                 <input type="text" id="reason" placeholder="السبب...">
                 <div class="btn-group">
                     <button class="action-btn btn-ban" onclick="executeAction('ban')">باند 🚨</button>
-                    <button class="action-btn btn-kick" onclick="executeAction('kick')">طرد 👢</button>
+                    <button class="action-btn btn-kick" onclick="executeAction('kick') - طرد 👢</button>
                     <button class="action-btn btn-timeout" onclick="executeAction('timeout')">تايم أوت ⏱️</button>
                 </div>
             </div>
