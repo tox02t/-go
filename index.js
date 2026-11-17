@@ -227,7 +227,7 @@ function getLayout(title, activePage, content) {
                 <button class="close-menu" onclick="toggleSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
-                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">📊 لوحة التحكم</a></li>
+                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/"> تحكم الاادارة </a></li>
                 <li class="${activePage === 'logs' ? 'active' : ''}"><a href="/logs">📜 السجلات المباشرة</a></li>
                 <li style="margin-top: 40px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
             </ul>
@@ -235,7 +235,7 @@ function getLayout(title, activePage, content) {
         <main class="main-content">
             <header class="topbar">
                 <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-                <div style="font-weight: 700; color: #38bdf8; font-size: 14px;">إدارة سيرفر ديسكورد</div>
+                <div style="font-weight: 700; color: #38bdf8; font-size: 14px;">DS Nef py TOX</div>
                 <div style="font-size: 12px; background: #1e293b; padding: 5px 12px; border-radius: 15px; color: #38bdf8;">${status}</div>
             </header>
             <div class="container">${content}</div>
@@ -265,7 +265,7 @@ app.get('/', checkAuth, (req, res) => {
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div class="box">
-                <h2>⚡ العقوبات السريعة</h2>
+                <h2>⚡ المحاسبات </h2>
                 <input type="text" id="targetId" placeholder="آيدي العضو...">
                 <input type="text" id="reason" placeholder="السبب...">
                 <div class="btn-group">
@@ -340,7 +340,7 @@ app.get('/', checkAuth, (req, res) => {
 
 app.get('/logs', checkAuth, (req, res) => {
     const all = liveLogs.map(l => `<li><span><strong>[${l.category}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
-    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات الكاملة</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`));
+    res.send(getLayout('الوقات', 'logs', `<div class="box"><h2>📜 الوقات</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`));
 });
 
 app.post('/api/action', checkAuth, async (req, res) => {
