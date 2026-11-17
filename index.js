@@ -39,6 +39,7 @@ const GUILD_ID = process.env.GUILD_ID;
 
 const REQUIRED_ROLE_ID = '1488188549529342182';
 const REQUIRED_ROLE_NAME = 'Management';
+const SUSPEND_ROLE_ID = '1487265600307728535';
 
 function getRedirectUri(req) {
     if (process.env.RENDER_EXTERNAL_URL) {
@@ -232,6 +233,7 @@ function getLayout(title, activePage, content, user) {
             <ul class="sidebar-menu">
                 <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">🏠 الرئيسية</a></li>
                 <li class="${activePage === 'actions' ? 'active' : ''}"><a href="/actions">⚡ الإدارة والعقوبات</a></li>
+                <li class="${activePage === 'suspend' ? 'active' : ''}"><a href="/suspend">⛔ إيقاف الخدمات</a></li>
                 <li class="${activePage === 'logs' ? 'active' : ''}"><a href="/logs">📜 السجلات المباشرة</a></li>
                 <li style="margin-top: 25px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
             </ul>
@@ -352,6 +354,34 @@ app.get('/actions', checkAuth, (req, res) => {
     res.send(getLayout('الإدارة والعقوبات', 'actions', content, req.session.user));
 });
 
+app.get('/suspend', checkAuth, (req, res) => {
+    const content = `
+        <div class="box" style="max-width: 600px; margin: auto;">
+            <h2>⛔ نظام إيقاف الخدمات</h2>
+            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">سحب جميع رتب العضو وإعطائه رتبة إيقاف الخدمات مع إرسال رسالة خاصة له تلقائياً.</p>
+            <input type="text" id="suspendUserId" placeholder="أدخل آيدي العضو...">
+            <input type="text" id="suspendReason" placeholder="سبب إيقاف الخدمات...">
+            <button class="action-btn btn-ban" onclick="suspendUser()" style="width: 100%; padding: 12px;">إيقاف خدمات العضو الآن 🚨</button>
+        </div>
+
+        <script>
+            function suspendUser() {
+                const userId = document.getElementById('suspendUserId').value;
+                const reason = document.getElementById('suspendReason').value || 'بدون سبب محدد';
+                if (!userId) return alert('الرجاء إدخال آيدي العضو!');
+                if (confirm('هل أنت متأكد من إيقاف خدمات هذا العضو وسحب جميع رتبه؟')) {
+                    fetch('/api/suspend', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, reason })
+                    }).then(res => res.json()).then(d => { alert(d.message); location.reload(); });
+                }
+            }
+        </script>
+    `;
+    res.send(getLayout('إيقاف الخدمات', 'suspend', content, req.session.user));
+});
+
 app.get('/logs', checkAuth, (req, res) => {
     const all = liveLogs.map(l => `<li><span><strong>[${l.category}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
     res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات الكاملة</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`, req.session.user));
@@ -393,6 +423,32 @@ app.post('/api/role', checkAuth, async (req, res) => {
         }
     } catch (e) {
         res.status(500).json({ message: 'فشل تعديل الرتبة، تأكد أن رتبة البوت أعلى.' });
+    }
+});
+
+app.post('/api/suspend', checkAuth, async (req, res) => {
+    const { userId, reason } = req.body;
+    try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) return res.status(404).json({ message: 'العضو غير موجود في السيرفر.' });
+
+        // سحب جميع الرتب ما عدا الرتبة الأساسية إن وجدت، وإضافة رتبة إيقاف الخدمات
+        const rolesToRemove = member.roles.cache.filter(r => r.id !== guild.id && r.managed === false);
+        await member.roles.remove(rolesToRemove).catch(() => {});
+        await member.roles.add(SUSPEND_ROLE_ID);
+
+        // إرسال رسالة خاصة للعضو
+        try {
+            await member.send(`⚠️ **تنبيه إداري:**\nتم إيقاف خدماتك في السيرفر.\n**السبب:** ${reason}`);
+        } catch (err) {
+            // العضو مقفل الخاص
+        }
+
+        addLog('SUSPEND', `إيقاف خدمات العضو ${member.user.tag} - السبب: ${reason}`, 'ACTIONS');
+        res.json({ message: 'تم إيقاف خدمات العضو بنجاح وسحب رتبه!' });
+    } catch (e) {
+        res.status(500).json({ message: 'حدث خطأ، تأكد أن رتبة البوت أعلى من رتبة إيقاف الخدمات وبقية الرتب.' });
     }
 });
 
