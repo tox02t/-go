@@ -172,7 +172,7 @@ app.get('/logout', (req, res) => {
 
 function getLayout(title, activePage, content) {
     const botName = client.user ? client.user.username : 'TOX Shield';
-    const status = client.isReady() ? 'متصل وحماية نشطة 🟢' : 'غير متصل 🔴';
+    const status = client.isReady() ? 'متصل 🟢' : 'غير متصل 🔴';
 
     return `
     <!DOCTYPE html>
@@ -184,38 +184,47 @@ function getLayout(title, activePage, content) {
         <style>
             * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
             body { background-color: #090d16; color: #f1f5f9; display: flex; height: 100vh; overflow: hidden; }
-            .sidebar { width: 260px; background: #0e1626; border-left: 1px solid #1e293b; display: flex; flex-direction: column; position: fixed; right: 0; top: 0; height: 100%; z-index: 100; }
-            .sidebar-header { padding: 22px; font-size: 19px; font-weight: 900; color: #38bdf8; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
+            .sidebar { width: 260px; background: #0e1626; border-left: 1px solid #1e293b; display: flex; flex-direction: column; position: fixed; right: 0; top: 0; height: 100%; z-index: 1000; transition: 0.3s ease; }
+            .sidebar-header { padding: 20px; font-size: 18px; font-weight: 900; color: #38bdf8; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
+            .close-menu { background: none; border: none; color: #ef4444; font-size: 22px; cursor: pointer; display: none; }
             .sidebar-menu { list-style: none; padding: 20px 12px; }
             .sidebar-menu li { padding: 12px 16px; margin-bottom: 8px; border-radius: 10px; font-weight: 600; color: #94a3b8; transition: 0.2s; }
             .sidebar-menu li a { color: inherit; text-decoration: none; display: block; }
             .sidebar-menu li:hover, .sidebar-menu li.active { background: #1e293b; color: #38bdf8; }
-            .main-content { flex: 1; margin-right: 260px; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
-            .topbar { background: #0e1626; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 90; }
-            .container { padding: 30px; max-width: 1200px; margin: auto; width: 100%; }
-            .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 25px; }
-            .card { background: #0e1626; border: 1px solid #1e293b; padding: 20px; border-radius: 14px; }
-            .card h3 { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
-            .card .value { font-size: 18px; font-weight: 700; color: #f8fafc; }
-            .box { background: #0e1626; border: 1px solid #1e293b; padding: 22px; border-radius: 14px; margin-bottom: 20px; }
-            .box h2 { font-size: 17px; margin-bottom: 15px; color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
-            input, select, textarea { width: 100%; padding: 12px 15px; margin-bottom: 12px; background: #090d16; border: 1px solid #1e293b; color: #fff; border-radius: 10px; font-size: 14px; outline: none; }
-            textarea { resize: vertical; height: 90px; }
-            .btn-group { display: flex; gap: 10px; }
-            button.action-btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; color: #fff; transition: 0.2s; }
-            .btn-ban { background: #dc2626; } .btn-ban:hover { background: #b91c1c; }
-            .btn-kick { background: #d97706; } .btn-kick:hover { background: #b45309; }
-            .btn-timeout { background: #7c3aed; } .btn-timeout:hover { background: #6d28d9; }
-            .btn-green { background: #10b981; } .btn-green:hover { background: #059669; }
-            .log-list { list-style: none; overflow-y: auto; max-height: 280px; background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #1e293b; }
-            .log-list li { padding: 10px 8px; border-bottom: 1px solid #1e293b; font-size: 13px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
-            .log-list .time { color: #64748b; font-size: 11px; background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+            .main-content { flex: 1; margin-right: 260px; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; width: calc(100% - 260px); }
+            .topbar { background: #0e1626; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 900; }
+            .menu-toggle { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; display: none; }
+            .container { padding: 25px; max-width: 1200px; margin: auto; width: 100%; }
+            .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+            .card { background: #0e1626; border: 1px solid #1e293b; padding: 18px; border-radius: 12px; }
+            .card h3 { font-size: 12px; color: #94a3b8; margin-bottom: 5px; }
+            .card .value { font-size: 16px; font-weight: 700; color: #f8fafc; }
+            .box { background: #0e1626; border: 1px solid #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+            .box h2 { font-size: 16px; margin-bottom: 12px; color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
+            input, select, textarea { width: 100%; padding: 10px 14px; margin-bottom: 10px; background: #090d16; border: 1px solid #1e293b; color: #fff; border-radius: 8px; font-size: 13px; outline: none; }
+            textarea { resize: vertical; height: 80px; }
+            .btn-group { display: flex; gap: 8px; }
+            button.action-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; color: #fff; font-size: 13px; transition: 0.2s; }
+            .btn-ban { background: #dc2626; } .btn-kick { background: #d97706; } .btn-timeout { background: #7c3aed; }
+            .btn-green { background: #10b981; }
+            .log-list { list-style: none; overflow-y: auto; max-height: 250px; background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; }
+            .log-list li { padding: 8px 6px; border-bottom: 1px solid #1e293b; font-size: 12px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+            .log-list .time { color: #64748b; font-size: 10px; background: #1e293b; padding: 2px 5px; border-radius: 4px; }
+            
+            @media(max-width: 900px) {
+                .sidebar { right: -260px; }
+                .sidebar.open { right: 0; }
+                .main-content { margin-right: 0; width: 100%; }
+                .menu-toggle { display: block; }
+                .close-menu { display: block; }
+            }
         </style>
     </head>
     <body>
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <span>🛡️ TOX Panel</span>
+                <button class="close-menu" onclick="toggleSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
                 <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">📊 لوحة التحكم</a></li>
@@ -225,11 +234,17 @@ function getLayout(title, activePage, content) {
         </div>
         <main class="main-content">
             <header class="topbar">
-                <div style="font-weight: 700; color: #38bdf8;">إدارة سيرفر ديسكورد الرسمي</div>
-                <div style="font-size: 13px; background: #1e293b; padding: 6px 14px; border-radius: 20px; color: #38bdf8;">${status}</div>
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div style="font-weight: 700; color: #38bdf8; font-size: 14px;">إدارة سيرفر ديسكورد</div>
+                <div style="font-size: 12px; background: #1e293b; padding: 5px 12px; border-radius: 15px; color: #38bdf8;">${status}</div>
             </header>
             <div class="container">${content}</div>
         </main>
+        <script>
+            function toggleSidebar() {
+                document.getElementById('sidebar').classList.toggle('open');
+            }
+        </script>
     </body>
     </html>`;
 }
@@ -238,7 +253,7 @@ app.get('/', checkAuth, (req, res) => {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const renderLogs = (cat) => {
         const filtered = liveLogs.filter(l => l.category === cat);
-        if (filtered.length === 0) return '<li style="color:#64748b;text-align:center;padding:15px;">لا توجد سجلات حالياً...</li>';
+        if (filtered.length === 0) return '<li style="color:#64748b;text-align:center;padding:12px;">لا توجد سجلات حالياً...</li>';
         return filtered.map(l => `<li><span><strong>[${l.type}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
     };
 
@@ -248,38 +263,38 @@ app.get('/', checkAuth, (req, res) => {
             <div class="card"><h3>المشرف المسجل</h3><div class="value" style="color:#38bdf8;">${req.session.user.username}</div></div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div class="box">
-                <h2>⚡ إدارة العقوبات السريعة</h2>
-                <input type="text" id="targetId" placeholder="آيدي العضو (User ID)...">
-                <input type="text" id="reason" placeholder="سبب العقوبة...">
+                <h2>⚡ العقوبات السريعة</h2>
+                <input type="text" id="targetId" placeholder="آيدي العضو...">
+                <input type="text" id="reason" placeholder="السبب...">
                 <div class="btn-group">
                     <button class="action-btn btn-ban" onclick="executeAction('ban')">باند 🚨</button>
                     <button class="action-btn btn-kick" onclick="executeAction('kick')">طرد 👢</button>
-                    <button class="action-btn btn-timeout" onclick="executeAction('timeout')">ميوت 10د ⏱️</button>
+                    <button class="action-btn btn-timeout" onclick="executeAction('timeout')">ميوت ⏱️</button>
                 </div>
             </div>
 
             <div class="box">
-                <h2>👑 إعطاء / إزالة رتبة لعضو</h2>
+                <h2>👑 إعطاء / إزالة رتبة</h2>
                 <input type="text" id="roleUserId" placeholder="آيدي العضو...">
-                <input type="text" id="roleId" placeholder="آيدي الرتبة المطلوبة...">
+                <input type="text" id="roleId" placeholder="آيدي الرتبة...">
                 <div class="btn-group">
-                    <button class="action-btn btn-green" onclick="manageRole('add')">إعطاء الرتبة ✅</button>
-                    <button class="action-btn btn-ban" onclick="manageRole('remove')">إزالة الرتبة ❌</button>
+                    <button class="action-btn btn-green" onclick="manageRole('add')">إعطاء ✅</button>
+                    <button class="action-btn btn-ban" onclick="manageRole('remove')">إزالة ❌</button>
                 </div>
             </div>
         </div>
 
-        <div class="box" style="margin-bottom: 25px;">
-            <h2>📢 إرسال رسالة لجميع أعضاء السيرفر (خاص DM)</h2>
-            <textarea id="broadcastMsg" placeholder="اكتب رسالتك الإدارية هنا لتصل لجميع الأعضاء بالخاص..."></textarea>
+        <div class="box" style="margin-bottom: 20px;">
+            <h2>📢 إرسال رسالة لجميع الأعضاء (DM)</h2>
+            <textarea id="broadcastMsg" placeholder="اكتب رسالتك هنا..."></textarea>
             <button class="action-btn btn-green" onclick="sendBroadcast()" style="width: 100%;">إرسال للجميع الآن 🚀</button>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div class="box"><h2>👑 لوق رتب الإدارة</h2><ul class="log-list">${renderLogs('ROLES')}</ul></div>
-            <div class="box"><h2>⚙️ لوق العقوبات والإجراءات</h2><ul class="log-list">${renderLogs('ACTIONS')}</ul></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="box"><h2>👑 لوق الرتب</h2><ul class="log-list">${renderLogs('ROLES')}</ul></div>
+            <div class="box"><h2>⚙️ لوق الإجراءات</h2><ul class="log-list">${renderLogs('ACTIONS')}</ul></div>
         </div>
 
         <script>
@@ -287,7 +302,7 @@ app.get('/', checkAuth, (req, res) => {
                 const userId = document.getElementById('targetId').value;
                 const reason = document.getElementById('reason').value || 'بدون سبب';
                 if (!userId) return alert('الرجاء إدخال آيدي العضو!');
-                if (confirm('هل أنت متأكد من تنفيذ الإجراء؟')) {
+                if (confirm('تأكيد التنفيذ؟')) {
                     fetch('/api/action', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -299,7 +314,7 @@ app.get('/', checkAuth, (req, res) => {
             function manageRole(action) {
                 const userId = document.getElementById('roleUserId').value;
                 const roleId = document.getElementById('roleId').value;
-                if (!userId || !roleId) return alert('الرجاء إدخال آيدي العضو وآيدي الرتبة!');
+                if (!userId || !roleId) return alert('أدخل آيدي العضو والرتبة!');
                 fetch('/api/role', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -309,8 +324,8 @@ app.get('/', checkAuth, (req, res) => {
 
             function sendBroadcast() {
                 const message = document.getElementById('broadcastMsg').value;
-                if (!message) return alert('الرجاء كتابة النص أولاً!');
-                if (confirm('تأكيد إرسال الرسالة لجميع الأعضاء بالخاص؟')) {
+                if (!message) return alert('اكتب الرسالة أولاً!');
+                if (confirm('تأكيد الإرسال للجميع؟')) {
                     fetch('/api/broadcast', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -325,7 +340,7 @@ app.get('/', checkAuth, (req, res) => {
 
 app.get('/logs', checkAuth, (req, res) => {
     const all = liveLogs.map(l => `<li><span><strong>[${l.category}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
-    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات الكاملة المباشرة</h2><ul class="log-list" style="max-height:500px;">${all}</ul></div>`));
+    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات الكاملة</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`));
 });
 
 app.post('/api/action', checkAuth, async (req, res) => {
@@ -333,14 +348,14 @@ app.post('/api/action', checkAuth, async (req, res) => {
     try {
         const guild = await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(userId).catch(() => null);
-        if (!member) return res.status(404).json({ message: 'العضو غير موجود في السيرفر.' });
+        if (!member) return res.status(404).json({ message: 'العضو غير موجود.' });
 
         if (type === 'ban') { await member.ban({ reason }); addLog('BAN', `حظر ${member.user.tag}`, 'ACTIONS'); }
         else if (type === 'kick') { await member.kick(reason); addLog('KICK', `طرد ${member.user.tag}`, 'ACTIONS'); }
         else if (type === 'timeout') { await member.timeout(10*60*1000, reason); addLog('TIMEOUT', `ميوت لـ ${member.user.tag}`, 'ACTIONS'); }
-        res.json({ message: 'تم تنفيذ الإجراء بنجاح!' });
+        res.json({ message: 'تم التنفيذ بنجاح!' });
     } catch (e) {
-        res.status(500).json({ message: 'فشل التنفيذ، تأكد من صلاحيات البوت بالسيرفر.' });
+        res.status(500).json({ message: 'فشل التنفيذ، تأكد من صلاحيات البوت.' });
     }
 });
 
@@ -363,7 +378,7 @@ app.post('/api/role', checkAuth, async (req, res) => {
             res.json({ message: `تم إزالة رتبة ${role.name} بنجاح!` });
         }
     } catch (e) {
-        res.status(500).json({ message: 'فشل تعديل الرتبة، تأكد أن رتبة البوت أعلى من الرتبة المطلوبة.' });
+        res.status(500).json({ message: 'فشل تعديل الرتبة، تأكد أن رتبة البوت أعلى.' });
     }
 });
 
@@ -379,15 +394,13 @@ app.post('/api/broadcast', checkAuth, async (req, res) => {
         for (const [id, member] of members) {
             if (!member.user.bot) {
                 try {
-                    await member.send(`📢 **رسالة إدارية من السيرفر:**\n\n${message}`);
+                    await member.send(`📢 **رسالة إدارية:**\n\n${message}`);
                     successCount++;
-                } catch (err) {
-                    // تجاهل الأعضاء الذين يقفلون الخاص
-                }
+                } catch (err) {}
             }
         }
-        addLog('BROADCAST', `تم إرسال رسالة إدارية لـ ${successCount} عضو`, 'ACTIONS');
-        res.json({ message: `تم إرسال الرسالة بنجاح إلى ${successCount} عضو!` });
+        addLog('BROADCAST', `إرسال رسالة لـ ${successCount} عضو`, 'ACTIONS');
+        res.json({ message: `تم الإرسال بنجاح إلى ${successCount} عضو!` });
     } catch (e) {
         res.status(500).json({ message: 'حدث خطأ أثناء الإرسال الجماعي.' });
     }
@@ -402,7 +415,7 @@ client.on('guildMemberUpdate', (oldM, newM) => {
 });
 
 client.on('guildMemberAdd', m => {
-    if (m.user.bot) addLog('BOT', `انضم بوت جديد: ${m.user.tag}`, 'BOTS');
+    if (m.user.bot) addLog('BOT', `انضم بوت: ${m.user.tag}`, 'BOTS');
 });
 
 client.once('ready', () => console.log(`[BOT] ${client.user.tag} متصل وجاهز!`));
