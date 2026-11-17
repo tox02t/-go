@@ -5,7 +5,6 @@ const session = require('express-session');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// إعدادات البوت
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -34,10 +33,20 @@ app.use(session({
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
-const REDIRECT_URI = process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/auth/discord/callback` : `http://localhost:${PORT}/auth/discord/callback`;
-const REQUIRED_ROLE_ID = '1488188549529342182'; // رول الإدارة المطلوب
 
-// --- دالة الحماية والتحقق من تسجيل الدخول والرول ---
+// تحديد رابط الـ Callback بشكل تلقائي وصحيح حسب بيئة Render
+function getRedirectUri(req) {
+    if (process.env.RENDER_EXTERNAL_URL) {
+        return `${process.env.RENDER_EXTERNAL_URL}/auth/discord/callback`;
+    }
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    return `${protocol}://${host}/auth/discord/callback`;
+}
+
+// رول الإدارة المطلوب
+const REQUIRED_ROLE_ID = '1488188549529342182';
+
 async function checkAuth(req, res, next) {
     if (!req.session.user) {
         return res.send(getLoginPage());
@@ -45,6 +54,9 @@ async function checkAuth(req, res, next) {
 
     try {
         const guildId = process.env.GUILD_ID;
+        if (!guildId) {
+            return res.status(500).send("خطأ: متغير GUILD_ID غير مضبوط في Render.");
+        }
         const guild = await client.guilds.fetch(guildId);
         const member = await guild.members.fetch(req.session.user.id).catch(() => null);
 
@@ -62,11 +74,11 @@ async function checkAuth(req, res, next) {
         }
         next();
     } catch (e) {
-        res.status(500).send("حدث خطأ أثناء التحقق من الصلاحيات.");
+        console.error(e);
+        res.status(500).send("حدث خطأ أثناء التحقق من الصلاحيات مع ديسكورد.");
     }
 }
 
-// صفحة تسجيل الدخول الفخمة
 function getLoginPage() {
     return `
     <html lang="ar" dir="rtl">
@@ -92,9 +104,9 @@ function getLoginPage() {
     </html>`;
 }
 
-// مسارات المصادقة
 app.get('/auth/discord', (req, res) => {
-    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
+    const redirectUri = getRedirectUri(req);
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20guilds.members.read`;
     res.redirect(discordAuthUrl);
 });
 
@@ -103,6 +115,7 @@ app.get('/auth/discord/callback', async (req, res) => {
     if (!code) return res.redirect('/');
 
     try {
+        const redirectUri = getRedirectUri(req);
         const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             body: new URLSearchParams({
@@ -110,13 +123,16 @@ app.get('/auth/discord/callback', async (req, res) => {
                 client_secret: CLIENT_SECRET,
                 grant_type: 'authorization_code',
                 code: code,
-                redirect_uri: REDIRECT_URI,
+                redirect_uri: redirectUri,
             }),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         });
 
         const oauthData = await tokenResponse.json();
-        if (!oauthData.access_token) return res.redirect('/');
+        if (!oauthData.access_token) {
+            console.error("OAuth Token Error:", oauthData);
+            return res.redirect('/');
+        }
 
         const userResponse = await fetch('https://discord.com/api/users/@me', {
             headers: { authorization: `Bearer ${oauthData.access_token}` },
@@ -126,6 +142,7 @@ app.get('/auth/discord/callback', async (req, res) => {
         req.session.user = userData;
         res.redirect('/');
     } catch (error) {
+        console.error("Auth Callback Exception:", error);
         res.redirect('/');
     }
 });
@@ -135,7 +152,6 @@ app.get('/logout', (req, res) => {
     res.redirect('/');
 });
 
-// قالب التصميم
 function getLayout(title, activePage, content) {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const status = client.isReady() ? 'متصل وحماية نشطة 🟢' : 'غير متصل 🔴';
