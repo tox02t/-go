@@ -30,7 +30,8 @@ function addLog(type, message) {
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'src', 'views'));
+// تم تصحيح المسار هنا ليتوافق مع هيكلة الملفات المباشرة على الاستضافة
+app.set('views', path.join(__dirname, 'views'));
 
 // الصفحة الرئيسية (لوحة التحكم Dashboard)
 app.get('/', (req, res) => {
@@ -44,7 +45,7 @@ app.get('/', (req, res) => {
 // مسار تنفيذ الباند لأي عضو من الموقع
 app.post('/dashboard/ban/:userId', async (req, res) => {
     const userId = req.params.userId;
-    const guildId = process.env.GUILD_ID; // آيدي السيرفر حقك (تأكد من إضافته في متغيرات الاستضافة)
+    const guildId = process.env.GUILD_ID; // آيدي السيرفر من متغيرات البيئة
     
     try {
         if (!guildId) {
@@ -78,9 +79,9 @@ client.on('guildBanAdd', (ban) => {
     addLog('BAN', `تم حظر العضو: ${ban.user.tag}`);
 });
 
-// تشغيل البوت والسرڤر معاُ
+// تشغيل البوت والسيرفر معاً
 app.listen(PORT, () => {
-    console.log(`[WEB] لوحة التحكم تعمل على المنصّة عبر البورت ${PORT}`);
+    console.log(`[WEB] لوحة التحكم تعمل على المنصة عبر البورت ${PORT}`);
 });
 
 // تسجيل دخول البوت باستخدام التوكن من متغيرات البيئة
