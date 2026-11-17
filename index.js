@@ -230,9 +230,10 @@ function getLayout(title, activePage, content, user) {
                 <button class="close-menu" onclick="toggleSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
-                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">📊 لوحة التحكم</a></li>
+                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">🏠 الرئيسية</a></li>
+                <li class="${activePage === 'actions' ? 'active' : ''}"><a href="/actions">⚡ الإدارة والعقوبات</a></li>
                 <li class="${activePage === 'logs' ? 'active' : ''}"><a href="/logs">📜 السجلات المباشرة</a></li>
-                <li style="margin-top: 30px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
+                <li style="margin-top: 25px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
             </ul>
             <div class="sidebar-info">
                 <p>🤖 البوت: <span>${botName}</span></p>
@@ -258,6 +259,17 @@ function getLayout(title, activePage, content, user) {
 }
 
 app.get('/', checkAuth, (req, res) => {
+    const content = `
+        <div class="box" style="text-align: center; padding: 50px 20px; background: linear-gradient(135deg, #0e1626 0%, #111e38 100%); border: 1px solid #38bdf833; margin-top: 20px;">
+            <h2 style="color: #38bdf8; font-size: 22px; border: none; margin-bottom: 12px;">أهلاً بك في لوحة تحكم الإدارة</h2>
+            <p style="color: #94a3b8; font-size: 15px; margin-bottom: 25px; line-height: 1.6;">تم تطوير الموقع من قبل المطور <strong>محمد الشمري</strong></p>
+            <a href="https://discord.gg/BfwgJXUsQR" target="_blank" style="display: inline-block; background: #5865F2; color: #fff; padding: 12px 25px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px; transition: 0.2s;">💬 ديسكورد للاستفسارات والتبليغ</a>
+        </div>
+    `;
+    res.send(getLayout('الرئيسية', 'home', content, req.session.user));
+});
+
+app.get('/actions', checkAuth, (req, res) => {
     const renderLogs = (cat) => {
         const filtered = liveLogs.filter(l => l.category === cat);
         if (filtered.length === 0) return '<li style="color:#64748b;text-align:center;padding:12px;">لا توجد سجلات حالياً...</li>';
@@ -265,12 +277,6 @@ app.get('/', checkAuth, (req, res) => {
     };
 
     const content = `
-        <div class="box" style="text-align: center; padding: 30px; background: linear-gradient(135deg, #0e1626 0%, #111e38 100%); border: 1px solid #38bdf833;">
-            <h2 style="color: #38bdf8; font-size: 20px; border: none; margin-bottom: 8px;">مرحباً بك في لوحة تحكم الإدارة</h2>
-            <p style="color: #94a3b8; font-size: 14px; margin-bottom: 15px;">تم تطوير الموقع من قبل المطور <strong>محمد الشمري</strong></p>
-            <a href="https://discord.gg/BfwgJXUsQR" target="_blank" style="display: inline-block; background: #5865F2; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13px;">💬 ديسكورد للاستفسارات والتبليغ</a>
-        </div>
-
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div class="box">
                 <h2>⚡ العقوبات السريعة</h2>
@@ -343,7 +349,7 @@ app.get('/', checkAuth, (req, res) => {
             }
         </script>
     `;
-    res.send(getLayout('لوحة التحكم', 'home', content, req.session.user));
+    res.send(getLayout('الإدارة والعقوبات', 'actions', content, req.session.user));
 });
 
 app.get('/logs', checkAuth, (req, res) => {
