@@ -1,132 +1,59 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-ytdl = require('ytdl-core');
-require('dotenv').config();
+const { Client, GatewayIntentBits } = require('discord.js');
+const { joinVoiceChannel } = require('@discordjs/voice');
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
+        GatewayIntentBits.GuildVoiceStates // ضروري جداً عشان البوت يشوف الرومات الصوتية
     ]
 });
 
-const PREFIX = '!';
+// ضع آيدي الروم الصوتي هنا و آيدي السيرفر (Guild)
+const VOICE_CHANNEL_ID = 'آيدي_الروم_الصوتي_هنا';
+const GUILD_ID = 'آيدي_السيرفر_هنا';
 
-client.once('ready', () => {
-    console.log(`✅ Logged in as ${client.user.tag}! Bot is online.`);
-});
+client.once('ready', async () => {
+    console.log(`Logged in as ${client.user.tag}!`);
 
-// أمر !go لفتح لوحة التحكم
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-    if (!message.content.startsWith(PREFIX)) return;
+    try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const channel = await guild.channels.fetch(VOICE_CHANNEL_ID);
 
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
-
-    if (command === 'go') {
-        const voiceChannel = message.member?.voice.channel;
-        if (!voiceChannel) {
-            return message.reply('❌ يجب أن تكون في روم صوتي (Voice Channel) لفتح لوحة التحكم!');
+        if (!channel || !channel.isVoiceBased()) {
+            return console.log("الروم الصوتي غير موجود أو أن الآيدي خطأ!");
         }
 
-        const embed = new EmbedBuilder()
-            .setTitle('🎶 TOX Music Control Panel')
-            .setDescription('أهلاً بك في لوحة تحكم الموسيقى!\nاضغط على الزر أدناه لإدخال رابط الأغنية.')
-            .setColor('#5865F2')
-            .setFooter({ text: 'Powered by TOX Bot' })
-            .setTimestamp();
+        // الاتصال بالروم الصوتي والبقاء فيه بشكل دائم
+        const connection = joinVoiceChannel({
+            channelId: channel.id,
+            guildId: guild.id,
+            adapterCreator: guild.voiceAdapterCreator,
+            selfDeaf: true, // كتم البوت لنفسه عشان ما ياكل باندوث أو يزعج أحد
+            selfMute: false
+        });
 
-        const row = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('play_link')
-                    .setLabel('إضافة رابط 🔗')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId('stop_music')
-                    .setLabel('إيقاف ومغادرة ⏹️')
-                    .setStyle(ButtonStyle.Danger)
-            );
+        console.log(`تم بنجاح دخول البوت وتكييفه في روم: ${channel.name}`);
 
-        await message.channel.send({ embeds: [embed], components: [row] });
+    } catch (error) {
+        console.error("حدث خطأ أثناء محاولة دخول الروم:", error);
     }
 });
 
-// الأزرار والـ UI
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-
-    if (interaction.customId === 'play_link') {
-        const modal = new ModalBuilder()
-            .setCustomId('songModal')
-            .setTitle('تشغيل مقطع صوتي');
-
-        const songInput = new TextInputBuilder()
-            .setCustomId('songUrlInput')
-            .setLabel('ضع رابط يوتيوب أو المقطع هنا:')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const firstActionRow = new ActionRowBuilder().addComponents(songInput);
-        modal.addComponents(firstActionRow);
-
-        await interaction.showModal(modal);
-    }
-
-    if (interaction.customId === 'stop_music') {
-        await interaction.reply({ content: '⏹️ تم إيقاف الموسيقى ومغادرة الروم.', ephemeral: true });
-    }
-});
-
-// استقبال الرابط وتشغيله
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isModalSubmit()) return;
-
-    if (interaction.customId === 'songModal') {
-        const url = interaction.fields.getTextInputValue('songUrlInput');
-        const voiceChannel = interaction.member?.voice.channel;
-
-        if (!voiceChannel) {
-            return interaction.reply({ content: '❌ يجب أن تكون في روم صوتي حالياً!', ephemeral: true });
-        }
-
-        if (!ytdl.validateURL(url)) {
-            return interaction.reply({ content: '❌ الرابط غير صالح أو غير مدعوم، تأكد أنه رابط يوتيوب صحيح.', ephemeral: true });
-        }
-
-        await interaction.deferReply({ ephemeral: true });
-
-        try {
-            const connection = joinVoiceChannel({
-                channelId: voiceChannel.id,
-                guildId: voiceChannel.guild.id,
-                adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+// حماية البوت من الخروج المفاجئ وإعادة الاتصال لو حصل انقطاع
+client.on('voiceStateUpdate', (oldState, newState) => {
+    // لو البوت نفسه طلع بالغلط أو انقطع اتصاله، يرجع يدخل تلقائياً
+    if (newState.member.id === client.user.id && !newState.channelId) {
+        console.log("تم إخراج البوت، جاري إعادة الاتصال...");
+        setTimeout(() => {
+            joinVoiceChannel({
+                channelId: VOICE_CHANNEL_ID,
+                guildId: GUILD_ID,
+                adapterCreator: newState.guild.voiceAdapterCreator,
+                selfDeaf: true
             });
-
-            const stream = ytdl(url, { filter: 'audioonly', highWaterMark: 1 << 62 });
-            const resource = createAudioResource(stream);
-            const player = createAudioPlayer();
-
-            player.play(resource);
-            connection.subscribe(player);
-
-            player.on(AudioPlayerStatus.Playing, () => {
-                interaction.editReply(`✅ جاري تشغيل المقطع بنجاح!`);
-            });
-
-            player.on('error', error => {
-                console.error(error);
-                interaction.editReply('❌ حدث خطأ أثناء تشغيل الرابط.');
-            });
-
-        } catch (error) {
-            console.error(error);
-            interaction.editReply('❌ لم يتمكن البوت من تشغيل هذا المقطع.');
-        }
+        }, 5000);
     }
 });
 
-client.login(process.env.TOKEN);
+// تسجيل الدخول بتوكن البوت الخاص بك
+client.login('توكن_البوت_هنا');
