@@ -170,9 +170,10 @@ app.get('/logout', (req, res) => {
     });
 });
 
-function getLayout(title, activePage, content) {
+function getLayout(title, activePage, content, user) {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const status = client.isReady() ? 'متصل 🟢' : 'غير متصل 🔴';
+    const userName = user ? user.username : 'مشرف';
 
     return `
     <!DOCTYPE html>
@@ -187,18 +188,20 @@ function getLayout(title, activePage, content) {
             .sidebar { width: 260px; background: #0e1626; border-left: 1px solid #1e293b; display: flex; flex-direction: column; position: fixed; right: 0; top: 0; height: 100%; z-index: 1000; transition: 0.3s ease; }
             .sidebar-header { padding: 20px; font-size: 18px; font-weight: 900; color: #38bdf8; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
             .close-menu { background: none; border: none; color: #ef4444; font-size: 22px; cursor: pointer; display: none; }
-            .sidebar-menu { list-style: none; padding: 20px 12px; }
+            .sidebar-menu { list-style: none; padding: 20px 12px; flex: 1; }
             .sidebar-menu li { padding: 12px 16px; margin-bottom: 8px; border-radius: 10px; font-weight: 600; color: #94a3b8; transition: 0.2s; }
             .sidebar-menu li a { color: inherit; text-decoration: none; display: block; }
             .sidebar-menu li:hover, .sidebar-menu li.active { background: #1e293b; color: #38bdf8; }
+            
+            .sidebar-info { padding: 15px; border-top: 1px solid #1e293b; background: #090d16; font-size: 12px; color: #94a3b8; }
+            .sidebar-info p { margin-bottom: 6px; }
+            .sidebar-info span { color: #38bdf8; font-weight: 700; }
+
             .main-content { flex: 1; margin-right: 260px; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; width: calc(100% - 260px); }
             .topbar { background: #0e1626; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 900; }
             .menu-toggle { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; display: none; }
             .container { padding: 25px; max-width: 1200px; margin: auto; width: 100%; }
-            .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
-            .card { background: #0e1626; border: 1px solid #1e293b; padding: 18px; border-radius: 12px; }
-            .card h3 { font-size: 12px; color: #94a3b8; margin-bottom: 5px; }
-            .card .value { font-size: 16px; font-weight: 700; color: #f8fafc; }
+            
             .box { background: #0e1626; border: 1px solid #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
             .box h2 { font-size: 16px; margin-bottom: 12px; color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
             input, select, textarea { width: 100%; padding: 10px 14px; margin-bottom: 10px; background: #090d16; border: 1px solid #1e293b; color: #fff; border-radius: 8px; font-size: 13px; outline: none; }
@@ -227,15 +230,20 @@ function getLayout(title, activePage, content) {
                 <button class="close-menu" onclick="toggleSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
-                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/"> تحكم الاادارة </a></li>
+                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">📊 لوحة التحكم</a></li>
                 <li class="${activePage === 'logs' ? 'active' : ''}"><a href="/logs">📜 السجلات المباشرة</a></li>
-                <li style="margin-top: 40px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
+                <li style="margin-top: 30px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
             </ul>
+            <div class="sidebar-info">
+                <p>🤖 البوت: <span>${botName}</span></p>
+                <p>👤 المشرف: <span>${userName}</span></p>
+                <p>👑 الصلاحية: <span>Management</span></p>
+            </div>
         </div>
         <main class="main-content">
             <header class="topbar">
                 <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-                <div style="font-weight: 700; color: #38bdf8; font-size: 14px;">DS Nef py TOX</div>
+                <div style="font-weight: 700; color: #38bdf8; font-size: 14px;">إدارة سيرفر ديسكورد</div>
                 <div style="font-size: 12px; background: #1e293b; padding: 5px 12px; border-radius: 15px; color: #38bdf8;">${status}</div>
             </header>
             <div class="container">${content}</div>
@@ -250,7 +258,6 @@ function getLayout(title, activePage, content) {
 }
 
 app.get('/', checkAuth, (req, res) => {
-    const botName = client.user ? client.user.username : 'TOX Shield';
     const renderLogs = (cat) => {
         const filtered = liveLogs.filter(l => l.category === cat);
         if (filtered.length === 0) return '<li style="color:#64748b;text-align:center;padding:12px;">لا توجد سجلات حالياً...</li>';
@@ -258,14 +265,15 @@ app.get('/', checkAuth, (req, res) => {
     };
 
     const content = `
-        <div class="grid-stats">
-            <div class="card"><h3>اسم البوت</h3><div class="value">${botName}</div></div>
-            <div class="card"><h3>المشرف المسجل</h3><div class="value" style="color:#38bdf8;">${req.session.user.username}</div></div>
+        <div class="box" style="text-align: center; padding: 30px; background: linear-gradient(135deg, #0e1626 0%, #111e38 100%); border: 1px solid #38bdf833;">
+            <h2 style="color: #38bdf8; font-size: 20px; border: none; margin-bottom: 8px;">مرحباً بك في لوحة تحكم الإدارة</h2>
+            <p style="color: #94a3b8; font-size: 14px; margin-bottom: 15px;">تم تطوير الموقع من قبل المطور <strong>محمد الشمري</strong></p>
+            <a href="https://discord.gg/BfwgJXUsQR" target="_blank" style="display: inline-block; background: #5865F2; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13px;">💬 ديسكورد للاستفسارات والتبليغ</a>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
             <div class="box">
-                <h2>⚡ المحاسبات </h2>
+                <h2>⚡ العقوبات السريعة</h2>
                 <input type="text" id="targetId" placeholder="آيدي العضو...">
                 <input type="text" id="reason" placeholder="السبب...">
                 <div class="btn-group">
@@ -335,12 +343,12 @@ app.get('/', checkAuth, (req, res) => {
             }
         </script>
     `;
-    res.send(getLayout('لوحة التحكم', 'home', content));
+    res.send(getLayout('لوحة التحكم', 'home', content, req.session.user));
 });
 
 app.get('/logs', checkAuth, (req, res) => {
     const all = liveLogs.map(l => `<li><span><strong>[${l.category}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
-    res.send(getLayout('الوقات', 'logs', `<div class="box"><h2>📜 الوقات</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`));
+    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات الكاملة</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`, req.session.user));
 });
 
 app.post('/api/action', checkAuth, async (req, res) => {
