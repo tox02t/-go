@@ -11,7 +11,8 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildBans,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.DirectMessages
     ],
     partials: [Partials.Channel, Partials.Message, Partials.GuildMember]
 });
@@ -20,7 +21,7 @@ const liveLogs = [];
 function addLog(type, message, category = 'SYSTEM') {
     const time = new Date().toLocaleTimeString('ar-SA');
     liveLogs.unshift({ type, message, time, category });
-    if (liveLogs.length > 150) liveLogs.pop();
+    if (liveLogs.length > 200) liveLogs.pop();
 }
 
 app.use(express.urlencoded({ extended: true }));
@@ -36,7 +37,6 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 const GUILD_ID = process.env.GUILD_ID;
 
-// إعدادات رتبة الإدارة المطلوبة
 const REQUIRED_ROLE_ID = '1488188549529342182';
 const REQUIRED_ROLE_NAME = 'Management';
 
@@ -75,7 +75,6 @@ async function checkAuth(req, res, next) {
             `);
         }
 
-        // التحقق إما بالـ ID أو باسم الرتبة Management
         const hasRoleById = member.roles.cache.has(REQUIRED_ROLE_ID);
         const hasRoleByName = member.roles.cache.some(r => r.name.toLowerCase() === REQUIRED_ROLE_NAME.toLowerCase());
 
@@ -115,7 +114,7 @@ function getLoginPage() {
     <body>
         <div class="login-card">
             <h1>🛡️ TOX Panel</h1>
-            <p>لوحة التحكم محمية بنظام آمن. يرجى تسجيل الدخول بحسابك في ديسكورد للتحقق من هويتك وصلاحيات (${REQUIRED_ROLE_NAME}).</p>
+            <p>لوحة التحكم محمية بنظام آمن. يرجى تسجيل الدخول بحسابك في ديسكورد للتحقق من صلاحيات (${REQUIRED_ROLE_NAME}).</p>
             <a href="/auth/discord" class="btn-discord">تسجيل الدخول بواسطة Discord 🎮</a>
         </div>
     </body>
@@ -171,7 +170,7 @@ app.get('/logout', (req, res) => {
     });
 });
 
-function getLayout(title, activePage, content, user) {
+function getLayout(title, activePage, content) {
     const botName = client.user ? client.user.username : 'TOX Shield';
     const status = client.isReady() ? 'متصل وحماية نشطة 🟢' : 'غير متصل 🔴';
 
@@ -185,7 +184,7 @@ function getLayout(title, activePage, content, user) {
         <style>
             * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
             body { background-color: #090d16; color: #f1f5f9; display: flex; height: 100vh; overflow: hidden; }
-            .sidebar { width: 260px; background: #0e1626; border-left: 1px solid #1e293b; display: flex; flex-direction: column; transition: 0.3s; position: fixed; right: 0; top: 0; height: 100%; z-index: 100; }
+            .sidebar { width: 260px; background: #0e1626; border-left: 1px solid #1e293b; display: flex; flex-direction: column; position: fixed; right: 0; top: 0; height: 100%; z-index: 100; }
             .sidebar-header { padding: 22px; font-size: 19px; font-weight: 900; color: #38bdf8; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
             .sidebar-menu { list-style: none; padding: 20px 12px; }
             .sidebar-menu li { padding: 12px 16px; margin-bottom: 8px; border-radius: 10px; font-weight: 600; color: #94a3b8; transition: 0.2s; }
@@ -193,21 +192,23 @@ function getLayout(title, activePage, content, user) {
             .sidebar-menu li:hover, .sidebar-menu li.active { background: #1e293b; color: #38bdf8; }
             .main-content { flex: 1; margin-right: 260px; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
             .topbar { background: #0e1626; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; position: sticky; top: 0; z-index: 90; }
-            .menu-toggle { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; display: none; }
             .container { padding: 30px; max-width: 1200px; margin: auto; width: 100%; }
             .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 25px; }
             .card { background: #0e1626; border: 1px solid #1e293b; padding: 20px; border-radius: 14px; }
             .card h3 { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
             .card .value { font-size: 18px; font-weight: 700; color: #f8fafc; }
-            @media(max-width: 900px) { .sidebar { right: -260px; } .sidebar.open { right: 0; } .main-content { margin-right: 0; } .menu-toggle { display: block; } }
             .box { background: #0e1626; border: 1px solid #1e293b; padding: 22px; border-radius: 14px; margin-bottom: 20px; }
             .box h2 { font-size: 17px; margin-bottom: 15px; color: #38bdf8; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
-            input, select { width: 100%; padding: 12px 15px; margin-bottom: 12px; background: #090d16; border: 1px solid #1e293b; color: #fff; border-radius: 10px; font-size: 14px; outline: none; }
+            input, select, textarea { width: 100%; padding: 12px 15px; margin-bottom: 12px; background: #090d16; border: 1px solid #1e293b; color: #fff; border-radius: 10px; font-size: 14px; outline: none; }
+            textarea { resize: vertical; height: 90px; }
             .btn-group { display: flex; gap: 10px; }
-            button.action-btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; color: #fff; }
-            .btn-ban { background: #dc2626; } .btn-kick { background: #d97706; } .btn-timeout { background: #7c3aed; }
+            button.action-btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; color: #fff; transition: 0.2s; }
+            .btn-ban { background: #dc2626; } .btn-ban:hover { background: #b91c1c; }
+            .btn-kick { background: #d97706; } .btn-kick:hover { background: #b45309; }
+            .btn-timeout { background: #7c3aed; } .btn-timeout:hover { background: #6d28d9; }
+            .btn-green { background: #10b981; } .btn-green:hover { background: #059669; }
             .log-list { list-style: none; overflow-y: auto; max-height: 280px; background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #1e293b; }
-            .log-list li { padding: 10px 8px; border-bottom: 1px solid #1e293b; font-size: 13px; color: #cbd5e1; display: flex; justify-content: space-between; }
+            .log-list li { padding: 10px 8px; border-bottom: 1px solid #1e293b; font-size: 13px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
             .log-list .time { color: #64748b; font-size: 11px; background: #1e293b; padding: 2px 6px; border-radius: 4px; }
         </style>
     </head>
@@ -215,24 +216,20 @@ function getLayout(title, activePage, content, user) {
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <span>🛡️ TOX Panel</span>
-                <button class="menu-toggle" onclick="toggleSidebar()">✕</button>
             </div>
             <ul class="sidebar-menu">
-                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">📊 نظرة عامة</a></li>
-                <li class="${activePage === 'settings' ? 'active' : ''}"><a href="/settings">⚙️ إعدادات الحماية</a></li>
-                <li class="${activePage === 'logs' ? 'active' : ''}"><a href="/logs">📜 السجلات الكاملة</a></li>
-                <li style="margin-top: 30px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
+                <li class="${activePage === 'home' ? 'active' : ''}"><a href="/">📊 لوحة التحكم</a></li>
+                <li class="${activePage === 'logs' ? 'active' : ''}"><a href="/logs">📜 السجلات المباشرة</a></li>
+                <li style="margin-top: 40px; background: #1e293b; text-align: center;"><a href="/logout" style="color: #ef4444;">🚪 تسجيل الخروج</a></li>
             </ul>
         </div>
         <main class="main-content">
             <header class="topbar">
-                <button class="menu-toggle" onclick="toggleSidebar()">≡</button>
-                <div style="font-weight: 700; color: #38bdf8;">لوحة التحكم المحمية</div>
+                <div style="font-weight: 700; color: #38bdf8;">إدارة سيرفر ديسكورد الرسمي</div>
                 <div style="font-size: 13px; background: #1e293b; padding: 6px 14px; border-radius: 20px; color: #38bdf8;">${status}</div>
             </header>
             <div class="container">${content}</div>
         </main>
-        <script>function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }</script>
     </body>
     </html>`;
 }
@@ -247,35 +244,50 @@ app.get('/', checkAuth, (req, res) => {
 
     const content = `
         <div class="grid-stats">
-            <div class="card"><h3>حالة البوت</h3><div class="value">${botName}</div></div>
-            <div class="card"><h3>المستخدم المسجل</h3><div class="value" style="color:#38bdf8;">${req.session.user.username}</div></div>
+            <div class="card"><h3>اسم البوت</h3><div class="value">${botName}</div></div>
+            <div class="card"><h3>المشرف المسجل</h3><div class="value" style="color:#38bdf8;">${req.session.user.username}</div></div>
         </div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
             <div class="box">
                 <h2>⚡ إدارة العقوبات السريعة</h2>
-                <input type="text" id="targetId" placeholder="أدخل آيدي العضو...">
-                <input type="text" id="reason" placeholder="السبب...">
+                <input type="text" id="targetId" placeholder="آيدي العضو (User ID)...">
+                <input type="text" id="reason" placeholder="سبب العقوبة...">
                 <div class="btn-group">
                     <button class="action-btn btn-ban" onclick="executeAction('ban')">باند 🚨</button>
                     <button class="action-btn btn-kick" onclick="executeAction('kick')">طرد 👢</button>
-                    <button class="action-btn btn-timeout" onclick="executeAction('timeout')">تايم أوت ⏱️</button>
+                    <button class="action-btn btn-timeout" onclick="executeAction('timeout')">ميوت 10د ⏱️</button>
                 </div>
             </div>
+
             <div class="box">
-                <h2>📌 صلاحيات رتبة Management</h2>
-                <p style="color: #94a3b8; font-size: 13px; line-height: 1.7;">تم التحقق من هويتك ورتبة الإدارة (${REQUIRED_ROLE_NAME}) بنجاح عبر حسابك الرسمي في ديسكورد.</p>
+                <h2>👑 إعطاء / إزالة رتبة لعضو</h2>
+                <input type="text" id="roleUserId" placeholder="آيدي العضو...">
+                <input type="text" id="roleId" placeholder="آيدي الرتبة المطلوبة...">
+                <div class="btn-group">
+                    <button class="action-btn btn-green" onclick="manageRole('add')">إعطاء الرتبة ✅</button>
+                    <button class="action-btn btn-ban" onclick="manageRole('remove')">إزالة الرتبة ❌</button>
+                </div>
             </div>
         </div>
+
+        <div class="box" style="margin-bottom: 25px;">
+            <h2>📢 إرسال رسالة لجميع أعضاء السيرفر (خاص DM)</h2>
+            <textarea id="broadcastMsg" placeholder="اكتب رسالتك الإدارية هنا لتصل لجميع الأعضاء بالخاص..."></textarea>
+            <button class="action-btn btn-green" onclick="sendBroadcast()" style="width: 100%;">إرسال للجميع الآن 🚀</button>
+        </div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="box"><h2>👑 لوق رتب الإدارة</h2><ul class="log-list">${renderLogs('ROLES')}</ul></div>
-            <div class="box"><h2>🤖 لوق دخول البوتات</h2><ul class="log-list">${renderLogs('BOTS')}</ul></div>
+            <div class="box"><h2>⚙️ لوق العقوبات والإجراءات</h2><ul class="log-list">${renderLogs('ACTIONS')}</ul></div>
         </div>
+
         <script>
             function executeAction(type) {
                 const userId = document.getElementById('targetId').value;
                 const reason = document.getElementById('reason').value || 'بدون سبب';
                 if (!userId) return alert('الرجاء إدخال آيدي العضو!');
-                if (confirm('تأكيد تنفيذ الإجراء؟')) {
+                if (confirm('هل أنت متأكد من تنفيذ الإجراء؟')) {
                     fetch('/api/action', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -283,18 +295,37 @@ app.get('/', checkAuth, (req, res) => {
                     }).then(res => res.json()).then(d => { alert(d.message); location.reload(); });
                 }
             }
+
+            function manageRole(action) {
+                const userId = document.getElementById('roleUserId').value;
+                const roleId = document.getElementById('roleId').value;
+                if (!userId || !roleId) return alert('الرجاء إدخال آيدي العضو وآيدي الرتبة!');
+                fetch('/api/role', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, userId, roleId })
+                }).then(res => res.json()).then(d => { alert(d.message); location.reload(); });
+            }
+
+            function sendBroadcast() {
+                const message = document.getElementById('broadcastMsg').value;
+                if (!message) return alert('الرجاء كتابة النص أولاً!');
+                if (confirm('تأكيد إرسال الرسالة لجميع الأعضاء بالخاص؟')) {
+                    fetch('/api/broadcast', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
+                    }).then(res => res.json()).then(d => { alert(d.message); document.getElementById('broadcastMsg').value = ''; });
+                }
+            }
         </script>
     `;
-    res.send(getLayout('نظرة عامة', 'home', content, req.session.user));
-});
-
-app.get('/settings', checkAuth, (req, res) => {
-    res.send(getLayout('الإعدادات', 'settings', `<div class="box"><h2>⚙️ إعدادات الحماية</h2><p style="color:#94a3b8;">إعدادات الأمان متصلة وتعمل بكفاءة عالية برتبة ${REQUIRED_ROLE_NAME}.</p></div>`, req.session.user));
+    res.send(getLayout('لوحة التحكم', 'home', content));
 });
 
 app.get('/logs', checkAuth, (req, res) => {
     const all = liveLogs.map(l => `<li><span><strong>[${l.category}]</strong> ${l.message}</span> <span class="time">${l.time}</span></li>`).join('');
-    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات</h2><ul class="log-list" style="max-height:450px;">${all}</ul></div>`, req.session.user));
+    res.send(getLayout('السجلات', 'logs', `<div class="box"><h2>📜 السجلات الكاملة المباشرة</h2><ul class="log-list" style="max-height:500px;">${all}</ul></div>`));
 });
 
 app.post('/api/action', checkAuth, async (req, res) => {
@@ -302,29 +333,78 @@ app.post('/api/action', checkAuth, async (req, res) => {
     try {
         const guild = await client.guilds.fetch(GUILD_ID);
         const member = await guild.members.fetch(userId).catch(() => null);
-        if (!member) return res.status(404).json({ message: 'العضو غير موجود.' });
+        if (!member) return res.status(404).json({ message: 'العضو غير موجود في السيرفر.' });
 
         if (type === 'ban') { await member.ban({ reason }); addLog('BAN', `حظر ${member.user.tag}`, 'ACTIONS'); }
         else if (type === 'kick') { await member.kick(reason); addLog('KICK', `طرد ${member.user.tag}`, 'ACTIONS'); }
-        else if (type === 'timeout') { await member.timeout(10*60*1000, reason); addLog('TIMEOUT', `تايم أوت لـ ${member.user.tag}`, 'ACTIONS'); }
+        else if (type === 'timeout') { await member.timeout(10*60*1000, reason); addLog('TIMEOUT', `ميوت لـ ${member.user.tag}`, 'ACTIONS'); }
         res.json({ message: 'تم تنفيذ الإجراء بنجاح!' });
     } catch (e) {
-        res.status(500).json({ message: 'فشل التنفيذ، تأكد من صلاحيات البوت.' });
+        res.status(500).json({ message: 'فشل التنفيذ، تأكد من صلاحيات البوت بالسيرفر.' });
+    }
+});
+
+app.post('/api/role', checkAuth, async (req, res) => {
+    const { action, userId, roleId } = req.body;
+    try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(userId).catch(() => null);
+        const role = await guild.roles.fetch(roleId).catch(() => null);
+
+        if (!member || !role) return res.status(404).json({ message: 'العضو أو الرتبة غير موجودة.' });
+
+        if (action === 'add') {
+            await member.roles.add(role);
+            addLog('ROLE', `إعطاء رتبة [${role.name}] لـ ${member.user.tag}`, 'ROLES');
+            res.json({ message: `تم إعطاء رتبة ${role.name} بنجاح!` });
+        } else {
+            await member.roles.remove(role);
+            addLog('ROLE', `إزالة رتبة [${role.name}] من ${member.user.tag}`, 'ROLES');
+            res.json({ message: `تم إزالة رتبة ${role.name} بنجاح!` });
+        }
+    } catch (e) {
+        res.status(500).json({ message: 'فشل تعديل الرتبة، تأكد أن رتبة البوت أعلى من الرتبة المطلوبة.' });
+    }
+});
+
+app.post('/api/broadcast', checkAuth, async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ message: 'الرسالة فارغة.' });
+
+    try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const members = await guild.members.fetch();
+        let successCount = 0;
+
+        for (const [id, member] of members) {
+            if (!member.user.bot) {
+                try {
+                    await member.send(`📢 **رسالة إدارية من السيرفر:**\n\n${message}`);
+                    successCount++;
+                } catch (err) {
+                    // تجاهل الأعضاء الذين يقفلون الخاص
+                }
+            }
+        }
+        addLog('BROADCAST', `تم إرسال رسالة إدارية لـ ${successCount} عضو`, 'ACTIONS');
+        res.json({ message: `تم إرسال الرسالة بنجاح إلى ${successCount} عضو!` });
+    } catch (e) {
+        res.status(500).json({ message: 'حدث خطأ أثناء الإرسال الجماعي.' });
     }
 });
 
 client.on('guildMemberUpdate', (oldM, newM) => {
     newM.roles.cache.filter(r => !oldM.roles.cache.has(r.id)).forEach(r => {
         if (['admin', 'streamer', 'مشرف', 'management'].some(n => r.name.toLowerCase().includes(n))) {
-            addLog('ROLE', `منح رتبة [${r.name}] لـ ${newM.user.tag}`, 'ROLES');
+            addLog('ROLE', `تحديث رتبة [${r.name}] لـ ${newM.user.tag}`, 'ROLES');
         }
     });
 });
 
 client.on('guildMemberAdd', m => {
-    if (m.user.bot) addLog('BOT', `انضم بوت: ${m.user.tag}`, 'BOTS');
+    if (m.user.bot) addLog('BOT', `انضم بوت جديد: ${m.user.tag}`, 'BOTS');
 });
 
-client.once('ready', () => console.log(`[BOT] ${client.user.tag} متصل!`));
+client.once('ready', () => console.log(`[BOT] ${client.user.tag} متصل وجاهز!`));
 app.listen(PORT, () => console.log(`[WEB] شغال على بورت ${PORT}`));
 client.login(process.env.TOKEN);
