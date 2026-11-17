@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const play = require('play-dl');
+const { DisTube } = require('distube');
+const { YtDlpPlugin } = require('@distube/yt-dlp');
 require('dotenv').config();
 
 const client = new Client({
@@ -12,13 +12,20 @@ const client = new Client({
     ]
 });
 
+// تهيئة مشغل DisTube القوي والمتعامل مع يوتيوب
+const distube = new DisTube(client, {
+    emitNewSongOnly: true,
+    emitAddSongWhenCreatingPlaylist: false,
+    plugins: [new YtDlpPlugin()]
+});
+
 const PREFIX = '!';
 
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}! Bot is online.`);
 });
 
-// أمر !go لفتح واجهة التحكم (UI)
+// أمر !go لإظهار لوحة التحكم
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.content.startsWith(PREFIX)) return;
@@ -34,7 +41,7 @@ client.on('messageCreate', async message => {
 
         const embed = new EmbedBuilder()
             .setTitle('🎶 TOX Music Control Panel')
-            .setDescription('أهلاً بك في لوحة تحكم الموسيقى!\nاختر أحد الأزرار بالأسفل لإدارة تشغيل الأغاني أو إيقافها.')
+            .setDescription('أهلاً بك في لوحة تحكم الموسيقى!\nاضغط على الزر أدناه لإدخال رابط الأغنية وتشغيلها فوراً.')
             .setColor('#5865F2')
             .setFooter({ text: 'Powered by TOX Bot' })
             .setTimestamp();
@@ -55,7 +62,7 @@ client.on('messageCreate', async message => {
     }
 });
 
-// التفاعل مع الأزرار والواجهة UI
+// التعامل مع الأزرار
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
@@ -77,11 +84,18 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.customId === 'stop_music') {
-        await interaction.reply({ content: '⏹️ تم إيقاف الموسيقى ومغادرة الروم.', ephemeral: true });
+        const queue = distube.getQueue(interaction.guildId);
+        if (queue) {
+            queue.stop();
+            distube.voices.leave(interaction.guildId);
+            await interaction.reply({ content: '⏹️ تم إيقاف الموسيقى ومغادرة الروم.', ephemeral: true });
+        } else {
+            await interaction.reply({ content: '❌ البوت ليس في أي روم صوتي حالياً!', ephemeral: true });
+        }
     }
 });
 
-// التعامل مع إدخال الرابط وتشغيل الصوت
+// استقبال الرابط من الـ Modal وتشغيله عبر DisTube
 client.on('interactionCreate', async interaction => {
     if (!interaction.isModalSubmit()) return;
 
@@ -96,31 +110,15 @@ client.on('interactionCreate', async interaction => {
         await interaction.deferReply({ ephemeral: true });
 
         try {
-            const connection = joinVoiceChannel({
-                channelId: voiceChannel.id,
-                guildId: voiceChannel.guild.id,
-                adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+            await distube.play(voiceChannel, url, {
+                textChannel: interaction.channel,
+                member: interaction.member
             });
 
-            const stream = await play.stream(url);
-            const resource = createAudioResource(stream.stream, { inputType: stream.type });
-            const player = createAudioPlayer();
-
-            player.play(resource);
-            connection.subscribe(player);
-
-            player.on(AudioPlayerStatus.Playing, () => {
-                interaction.editReply(`✅ جاري تشغيل الرابط بنجاح!`);
-            });
-
-            player.on('error', error => {
-                console.error(error);
-                interaction.editReply('❌ حدث خطأ أثناء تشغيل الرابط.');
-            });
-
+            await interaction.editReply(`✅ جاري تشغيل المقطع بنجاح!`);
         } catch (error) {
             console.error(error);
-            interaction.editReply('❌ تأكد من أن الرابط صحيح أو مدعوم.');
+            await interaction.editReply('❌ حدث خطأ أثناء تشغيل الرابط، تأكد أنه صحيح.');
         }
     }
 });
